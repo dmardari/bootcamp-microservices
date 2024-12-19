@@ -1,0 +1,11 @@
+# Compiled output
+/target/
+
+# IDE specific files
+.idea/
+.vscode/
+*.iml
+
+
+# Other
+.DS_Store
