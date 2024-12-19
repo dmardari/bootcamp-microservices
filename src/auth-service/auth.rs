@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use crate::{sessions::Sessions, users::Users};
+use crate::{sessions::Sessions, users::UsersService};
 
 use tonic::{Request, Response, Status};
 
@@ -19,13 +19,13 @@ pub use authentication::auth_server::AuthServer;
 pub use tonic::transport::Server;
 
 pub struct AuthService {
-    users_service: Box<Mutex<dyn Users + Send + Sync>>,
+    users_service: Box<Mutex<dyn UsersService + Send + Sync>>,
     sessions_service: Box<Mutex<dyn Sessions + Send + Sync>>,
 }
 
 impl AuthService {
     pub fn new(
-        users_service: Box<Mutex<dyn Users + Send + Sync>>,
+        users_service: Box<Mutex<dyn UsersService + Send + Sync>>,
         sessions_service: Box<Mutex<dyn Sessions + Send + Sync>>,
     ) -> Self {
         Self {
@@ -97,13 +97,13 @@ impl Auth for AuthService {
 
 #[cfg(test)]
 mod tests {
-    use crate::{users::UsersImpl, sessions::SessionsImpl};
+    use crate::{users::UsersServiceImpl, sessions::SessionsImpl};
 
     use super::*;
 
     #[tokio::test]
     async fn sign_in_should_fail_if_user_not_found() {
-        let users_service = Box::new(Mutex::new(UsersImpl::default()));
+        let users_service = Box::new(Mutex::new(UsersServiceImpl::default()));
         let sessions_service = Box::new(Mutex::new(SessionsImpl::default()));
 
         let auth_service = AuthService::new(users_service, sessions_service);
@@ -122,7 +122,7 @@ mod tests {
 
     #[tokio::test]
     async fn sign_in_should_fail_if_incorrect_password() {
-        let mut users_service = UsersImpl::default();
+        let mut users_service = UsersServiceImpl::default();
 
         let _ = users_service.create_user("123456".to_owned(), "654321".to_owned());
 
@@ -145,7 +145,7 @@ mod tests {
 
     #[tokio::test]
     async fn sign_in_should_succeed() {
-        let mut users_service = UsersImpl::default();
+        let mut users_service = UsersServiceImpl::default();
 
         let _ = users_service.create_user("123456".to_owned(), "654321".to_owned());
 
@@ -168,7 +168,7 @@ mod tests {
 
     #[tokio::test]
     async fn sign_up_should_fail_if_username_exists() {
-        let mut users_service = UsersImpl::default();
+        let mut users_service = UsersServiceImpl::default();
 
         let _ = users_service.create_user("123456".to_owned(), "654321".to_owned());
 
@@ -189,7 +189,7 @@ mod tests {
 
     #[tokio::test]
     async fn sign_up_should_succeed() {
-        let users_service = Box::new(Mutex::new(UsersImpl::default()));
+        let users_service = Box::new(Mutex::new(UsersServiceImpl::default()));
         let sessions_service = Box::new(Mutex::new(SessionsImpl::default()));
 
         let auth_service = AuthService::new(users_service, sessions_service);
@@ -206,7 +206,7 @@ mod tests {
 
     #[tokio::test]
     async fn sign_out_should_succeed() {
-        let users_service = Box::new(Mutex::new(UsersImpl::default()));
+        let users_service = Box::new(Mutex::new(UsersServiceImpl::default()));
         let sessions_service = Box::new(Mutex::new(SessionsImpl::default()));
 
         let auth_service = AuthService::new(users_service, sessions_service);
