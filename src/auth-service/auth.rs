@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use crate::{sessions::Sessions, users::UsersService};
+use crate::{sessions::SessionsService, users::UsersService};
 
 use tonic::{Request, Response, Status};
 
@@ -20,13 +20,13 @@ pub use tonic::transport::Server;
 
 pub struct AuthService {
     users_service: Box<Mutex<dyn UsersService + Send + Sync>>,
-    sessions_service: Box<Mutex<dyn Sessions + Send + Sync>>,
+    sessions_service: Box<Mutex<dyn SessionsService + Send + Sync>>,
 }
 
 impl AuthService {
     pub fn new(
         users_service: Box<Mutex<dyn UsersService + Send + Sync>>,
-        sessions_service: Box<Mutex<dyn Sessions + Send + Sync>>,
+        sessions_service: Box<Mutex<dyn SessionsService + Send + Sync>>,
     ) -> Self {
         Self {
             users_service,
