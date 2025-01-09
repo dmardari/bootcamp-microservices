@@ -15,7 +15,6 @@ pub mod authentication {
 }
 
 // Re-exporting
-use crate::sessions::SessionsImpl;
 pub use authentication::auth_server::AuthServer;
 pub use tonic::transport::Server;
 
@@ -38,6 +37,30 @@ impl AuthService {
 
 #[tonic::async_trait]
 impl Auth for AuthService {
+    async fn sign_up(
+        &self,
+        request: Request<SignUpRequest>,
+    ) -> Result<Response<SignUpResponse>, Status> {
+        println!("Got a request: {:?}", request);
+
+        let req = request.into_inner();
+
+        let result: Result<(), String> = self
+            .users_service
+            .lock()
+            .expect("UsersService should be lockable")
+            .create_user(req.username, req.password);
+
+        match result {
+            Ok(_) => Ok(Response::new(SignUpResponse {
+                status_code: StatusCode::Success.into(),
+            })),
+            Err(_) => Ok(Response::new(SignUpResponse {
+                status_code: StatusCode::Failure.into(),
+            })),
+        }
+    }
+
     async fn sign_in(
         &self,
         request: Request<SignInRequest>,
@@ -74,30 +97,6 @@ impl Auth for AuthService {
         }
     }
 
-    async fn sign_up(
-        &self,
-        request: Request<SignUpRequest>,
-    ) -> Result<Response<SignUpResponse>, Status> {
-        println!("Got a request: {:?}", request);
-
-        let req = request.into_inner();
-
-        let result: Result<(), String> = self
-            .users_service
-            .lock()
-            .expect("UsersService should be lockable")
-            .create_user(req.username, req.password);
-
-        match result {
-            Ok(response) => Ok(Response::new(SignUpResponse {
-                status_code: StatusCode::Success.into(),
-            })),
-            Err(e) => Ok(Response::new(SignUpResponse {
-                status_code: StatusCode::Failure.into(),
-            })),
-        }
-    }
-
     async fn sign_out(
         &self,
         request: Request<SignOutRequest>,
@@ -106,10 +105,13 @@ impl Auth for AuthService {
 
         let req = request.into_inner();
 
-        self.sessions_service.lock().expect("SessionService should be lockable").delete_session(req.session_token.as_str());
+        self.sessions_service
+            .lock()
+            .expect("SessionService should be lockable")
+            .delete_session(req.session_token.as_str());
 
         let reply: SignOutResponse = SignOutResponse {
-            status_code: StatusCode::Success.into()
+            status_code: StatusCode::Success.into(),
         };
 
         Ok(Response::new(reply))
