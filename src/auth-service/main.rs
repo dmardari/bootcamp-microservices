@@ -6,7 +6,7 @@ mod users;
 
 use auth::*;
 use sessions::{SessionsImpl, SessionsService};
-use users::{UsersServiceImpl, UsersService};
+use users::{UsersService, UsersServiceImpl};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,8 +16,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Port 50051 is the recommended gRPC port.
     let addr = "[::0]:50051".parse()?;
 
-    let users_service: Box<Mutex<dyn UsersService + Send + Sync + 'static>> = todo!(); // Create user service instance
-    let sessions_service: Box<Mutex<dyn SessionsService + Send + Sync + 'static>> = todo!(); //Create session service instance
+    let users_service: Box<Mutex<dyn UsersService + Send + Sync + 'static>> =
+        Box::new(Mutex::new(UsersServiceImpl::default()));
+
+    let sessions_service: Box<Mutex<dyn SessionsService + Send + Sync + 'static>> =
+        Box::new(Mutex::new(SessionsImpl::default()));
 
     let auth_service = AuthService::new(users_service, sessions_service);
 
