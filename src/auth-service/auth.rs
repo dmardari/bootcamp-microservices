@@ -15,6 +15,7 @@ pub mod authentication {
 }
 
 // Re-exporting
+use crate::sessions::SessionsImpl;
 pub use authentication::auth_server::AuthServer;
 pub use tonic::transport::Server;
 
@@ -45,17 +46,32 @@ impl Auth for AuthService {
 
         let req = request.into_inner();
 
-        let result: Option<String> = todo!(); // Get user's uuid from `users_service`. Panic if the lock is poisoned.
+        let result: Option<String> = self
+            .users_service
+            .lock()
+            .expect("UsersService should be lockable")
+            .get_user_uuid(req.username, req.password);
 
-        // Match on `result`. If `result` is `None` return a SignInResponse with a the `status_code` set to `Failure`
-        // and `user_uuid`/`session_token` set to empty strings.
-        let user_uuid: String = todo!();
-
-        let session_token: String = todo!(); // Create new session using `sessions_service`. Panic if the lock is poisoned.
-
-        let reply: SignInResponse = todo!(); // Create a `SignInResponse` with `status_code` set to `Success`
-
-        Ok(Response::new(reply))
+        match result {
+            None => Ok(Response::new(SignInResponse {
+                status_code: StatusCode::Failure.into(),
+                session_token: "".to_owned(),
+                user_uuid: "".to_owned(),
+            })),
+            Some(user_uuid) => {
+                let session_token: String = self
+                    .sessions_service
+                    .lock()
+                    .expect("SessionService should be lockable")
+                    .create_session(user_uuid.as_str()); // Create new session using `sessions_service`. Panic if the lock is poisoned.
+                let reply: SignInResponse = SignInResponse {
+                    status_code: StatusCode::Success.into(),
+                    user_uuid,
+                    session_token,
+                };
+                Ok(Response::new(reply))
+            }
+        }
     }
 
     async fn sign_up(
@@ -66,16 +82,19 @@ impl Auth for AuthService {
 
         let req = request.into_inner();
 
-        let result: Result<(), String> = todo!(); // Create a new user through `users_service`. Panic if the lock is poisoned.
+        let result: Result<(), String> = self
+            .users_service
+            .lock()
+            .expect("UsersService should be lockable")
+            .create_user(req.username, req.password);
 
-        // TODO: Return a `SignUpResponse` with the appropriate `status_code` based on `result`.
         match result {
-            Ok(_) => {
-                todo!()
-            }
-            Err(_) => {
-                todo!()
-            }
+            Ok(response) => Ok(Response::new(SignUpResponse {
+                status_code: StatusCode::Success.into(),
+            })),
+            Err(e) => Ok(Response::new(SignUpResponse {
+                status_code: StatusCode::Failure.into(),
+            })),
         }
     }
 
@@ -87,9 +106,11 @@ impl Auth for AuthService {
 
         let req = request.into_inner();
 
-        // TODO: Delete session using `sessions_service`.
+        self.sessions_service.lock().expect("SessionService should be lockable").delete_session(req.session_token.as_str());
 
-        let reply: SignOutResponse = todo!(); // Create `SignOutResponse` with `status_code` set to `Success`
+        let reply: SignOutResponse = SignOutResponse {
+            status_code: StatusCode::Success.into()
+        };
 
         Ok(Response::new(reply))
     }
@@ -97,7 +118,7 @@ impl Auth for AuthService {
 
 #[cfg(test)]
 mod tests {
-    use crate::{users::UsersServiceImpl, sessions::SessionsImpl};
+    use crate::{sessions::SessionsImpl, users::UsersServiceImpl};
 
     use super::*;
 
@@ -212,7 +233,7 @@ mod tests {
         let auth_service = AuthService::new(users_service, sessions_service);
 
         let request = tonic::Request::new(SignOutRequest {
-            session_token: "".to_owned()
+            session_token: "".to_owned(),
         });
 
         let result = auth_service.sign_out(request).await.unwrap();
